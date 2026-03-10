@@ -8,7 +8,7 @@ import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
-import { syncMessages, syncTasks, syncMemories, syncAll, sendMessage, createTask } from "./index.js";
+import { syncMessages, syncTasks, syncMemories, syncAll, sendMessage, createTask, agentComment, activityFeed } from "./index.js";
 
 const API_KEY = process.env.GOLDHOLD_API_KEY;
 
@@ -67,6 +67,31 @@ const TOOLS = [
       },
       required: ["description"]
     }
+  },
+  {
+    name: "goldhold_notion_comment",
+    description: "Post an agent comment directly on a Notion page. Agents communicate WHERE the work lives -- not in a separate inbox. Super Comms.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        pageId: { type: "string", description: "Notion page ID to comment on" },
+        agentName: { type: "string", description: "Agent name (shown as [AgentName] prefix)" },
+        message: { type: "string", description: "Comment message" }
+      },
+      required: ["pageId", "agentName", "message"]
+    }
+  },
+  {
+    name: "goldhold_notion_activity_feed",
+    description: "Get the agent activity feed (comments) from any Notion page. See what agents are saying about the work.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        pageId: { type: "string", description: "Notion page ID" },
+        limit: { type: "number", description: "Max comments to return (default 50)" }
+      },
+      required: ["pageId"]
+    }
   }
 ];
 
@@ -100,6 +125,12 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         break;
       case "goldhold_notion_create_task":
         result = await createTask(API_KEY, args);
+        break;
+      case "goldhold_notion_comment":
+        result = await agentComment(API_KEY, args);
+        break;
+      case "goldhold_notion_activity_feed":
+        result = await activityFeed(API_KEY, args);
         break;
       default:
         result = { error: `Unknown tool: ${name}` };

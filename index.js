@@ -212,6 +212,43 @@ export async function createTask(apiKey, { description, assignee, priority }) {
   return { ok: true, notion: "synced", relay: result };
 }
 
+// --- Agent comments on Notion pages (Super Comms) ---
+
+export async function agentComment(apiKey, { pageId, agentName, message }) {
+  const n = initNotion();
+
+  // Post comment to Notion page
+  await n.comments.create({
+    parent: { page_id: pageId },
+    rich_text: [{ type: "text", text: { content: `[${agentName}] ${message}` } }]
+  });
+
+  // Also send through GoldHold relay for persistence
+  await relayFetch("/v1/send", {
+    to: "self",
+    subject: `Comment on ${pageId}`,
+    body: `[${agentName}] ${message}`
+  }, apiKey);
+
+  return { ok: true, page_id: pageId, agent: agentName };
+}
+
+// --- Agent activity feed on any Notion page ---
+
+export async function activityFeed(apiKey, { pageId, limit }) {
+  const n = initNotion();
+  const comments = await n.comments.list({ block_id: pageId, page_size: limit || 50 });
+  return {
+    ok: true,
+    count: comments.results.length,
+    feed: comments.results.map(c => ({
+      id: c.id,
+      created: c.created_time,
+      text: c.rich_text.map(r => r.plain_text).join("")
+    }))
+  };
+}
+
 // --- Full sync (all three) ---
 
 export async function syncAll(apiKey, options = {}) {
